@@ -3,7 +3,7 @@
 *   
 *   File:   ArduinoAudioPlayer.ino
 *   Author:  Jithin Krishnan.K
-*       Rev. 0.0.2 : 04/01/2019 :  07:13 PM
+*       Rev. 1.1 : 14/01/2019 :  10:49 PM
 * 
 * This program is free software: you can redistribute it and/or modify
 *   it under the terms of the GNU General Public License as published by
@@ -21,13 +21,12 @@
 * Email: jithinkrishnan.k@gmail.com
 *   
 ************************************************************************/
-
 #include <IRremote.h>
 #include "SD.h"
 #include "TMRpcm.h"
 #include "SPI.h"
 
-#define RECV_PIN 8
+#define RECV_PIN 2
 
 #define CONFIG_FILE "CONFIG.TXT"
 #define SD_ChipSelectPin 10
@@ -37,21 +36,23 @@ IRrecv irrecv(RECV_PIN);
 File root, file;
 decode_results results;
 
-int file_pos = 1, prev_file_pos = -1;
+int file_pos = 1;
 String buf2;
 char buf[20];
 int fcnt = 0;
+int playStop = 0;
 
 void setup() {
  
   Serial.begin(115200);
   while (!Serial);
-  
+  pinMode(8, OUTPUT);
   tmrpcm.speakerPin = 9;
+  attachInterrupt(digitalPinToInterrupt(2),CheckIRInterrupt,HIGH);
   irrecv.enableIRIn();
   tmrpcm.setVolume(5);
   tmrpcm.quality(1);
-
+ 
   if (!SD.begin(SD_ChipSelectPin)) {
     while(1);
    }
@@ -67,41 +68,28 @@ void setup() {
  }
 
 void loop() {
-
-  if (irrecv.decode(&results)) {
-   
-     switch(results.value) {
-     case 0x1FEC03F: // vire remote next button
-       if(file_pos < fcnt)
-          file_pos++;
-       else
-          file_pos = fcnt;         
-          break;
-     case 0x1FE40BF: // vire remote prev button 
-       if(file_pos > 0)
-          file_pos--;
-       else
-          file_pos = 0;
-          break;
-     default:
-       break;
-   }
-   irrecv.resume();
-  }
-      
-      
-  if (file_pos != prev_file_pos) {
+  
+  if (playStop) {
+      Serial.println("playback stopped");
+      tmrpcm.stopPlayback();
+      playStop = 0; 
+      delay(1000);
+   } else if (!playStop) {
+        if (!tmrpcm.isPlaying()) {
         buf2 =  GetFileName(file_pos);
         memset(buf, 0, sizeof(buf));
         buf2.toCharArray(buf, 20);
-        if(strcmp(buf, "")) {
-          tmrpcm.play(buf);
-          Serial.print("Playing = ");
-          Serial.println(buf);
+        Serial.print("Playing = ");
+        Serial.println(buf);   
+        tmrpcm.play(buf);
+              
+          if(file_pos < fcnt) // For playing in loop mode
+              file_pos++;
+            else
+              file_pos = 0;  
+          }     
         }
-        prev_file_pos = file_pos;
-    }
-}
+ }
 
 // This fun will Create "CONFIG.TXT" file
 // Content: the List of all wave files in 
@@ -183,3 +171,24 @@ void GetFileCount(void)
       return 0;
 }
 
+void CheckIRInterrupt() {
+
+  if (irrecv.decode(&results)) {
+  if (results.value == 0x1FEC03F) { // vire remote next button
+       if(file_pos < fcnt)
+          file_pos++;
+       else
+          file_pos = fcnt;  
+          playStop = 1; 
+          Serial.println("Playing Next File");      
+      } else if (results.value == 0x1FE40BF) {// vire remote prev button 
+       if(file_pos > 0)
+          file_pos--;
+       else
+          file_pos = 0;
+          playStop = 1;
+          Serial.println("Playing Prev File");
+      } 
+  irrecv.resume();
+  }
+}
