@@ -36,11 +36,13 @@ IRrecv irrecv(RECV_PIN);
 File root, file;
 decode_results results;
 
-int file_pos = 1;
+int file_pos = 0,file_pos_n = 0;
 String buf2;
 char buf[20];
 int fcnt = 0;
 int playStop = 0;
+int ir_buf[3];
+int ir_buf_idx = 0;
 
 void setup() {
  
@@ -188,7 +190,96 @@ void CheckIRInterrupt() {
           file_pos = 0;
           playStop = 1;
           Serial.println("Playing Prev File");
-      } 
-  irrecv.resume();
-  }
+      }  else if (results.value == 0x1FE807F) { // vire remote PLAY/PAUSE
+          if(ir_buf_idx == 1)
+            file_pos_n = ir_buf[0];
+          else if (ir_buf_idx == 2)
+            file_pos_n = ir_buf[0]*10 + ir_buf[1];
+          else if (ir_buf_idx == 3)
+            file_pos_n = ir_buf[0]*100 + ir_buf[1]*10 + ir_buf[2];
+            ir_buf_idx = 0;
+            
+          if(file_pos_n < fcnt) {
+            Serial.print("Playing File ");
+            Serial.println(file_pos_n);
+            file_pos = file_pos_n;
+            playStop = 1;
+          }
+      }      
+        switch(results.value) {
+          case 0x1FEE01F: // 0
+          ir_buf[ir_buf_idx] = 0;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FE50AF:
+          ir_buf[ir_buf_idx] = 1;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FED827:
+          ir_buf[ir_buf_idx] = 2;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FEF807:
+          ir_buf[ir_buf_idx] = 3;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FE30CF:
+          ir_buf[ir_buf_idx] = 4;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FEB04F:
+          ir_buf[ir_buf_idx] = 5;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FE708F:
+          ir_buf[ir_buf_idx] = 6;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FE00FF:
+          ir_buf[ir_buf_idx] = 7;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FEF00F:
+          ir_buf[ir_buf_idx] = 8;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          case 0x1FE9867: // 9
+          ir_buf[ir_buf_idx] = 9;
+          if (ir_buf_idx < 3)
+              ir_buf_idx++;
+              else
+              ir_buf_idx = 0;
+          break;
+          default:
+          break;      
+        }
+           irrecv.resume();
+        }
 }
